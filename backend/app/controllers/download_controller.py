@@ -1,40 +1,62 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from flask import Response, jsonify, request, stream_with_context
 
-from app.models.download_model import DownloadRequest, InfoRequest, InfoResponse
-from app.services import download_service
-
-router = APIRouter(prefix="/api", tags=["download"])
+from app.services.download_service import DownloadService
 
 
-@router.post("/info", response_model=InfoResponse)
-async def get_info(req: InfoRequest):
-    """Return metadata (title, thumbnail, duration) for a given URL."""
-    try:
-        data = download_service.get_info(req.url)
-        return InfoResponse(**data)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post("/download")
-async def download(req: DownloadRequest):
+class DownloadController:
     """
-    Download the audio for *url* and stream it back as an MP3.
-    The frontend can either trigger a browser download or save it to the
-    user-selected directory via the File System Access API.
+    Handles HTTP-level concerns (parsing request JSON, shaping responses,
+    mapping service exceptions to HTTP status codes).  Business logic lives
+    in DownloadService.
     """
-    try:
-        gen, filename = download_service.download_audio(req.url)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    safe_filename = filename.replace('"', '\\"')
-    return StreamingResponse(
-        gen,
-        media_type="audio/mpeg",
-        headers={
-            "Content-Disposition": f'attachment; filename="{safe_filename}"',
-            "X-Filename": safe_filename,
-        },
-    )
+    def __init__(self) -> None:
+        self._service = DownloadService()
+
+    # ------------------------------------------------------------------ #
+    # GET /api/health (delegated from routes)
+    # ------------------------------------------------------------------ #
+
+    def health(self):
+        return jsonify({"status": "ok"})
+
+    # ------------------------------------------------------------------ #
+    # POST /api/info
+    # ------------------------------------------------------------------ #
+
+    def get_info(self):
+        body = request.get_json(silent=True) or {}
+        url = body.get("url", "").strip()
+        if not url:
+            return jsonify({"error": "url is required"}), 400
+
+        try:
+            data = self._service.get_info(url)
+            return jsonify(data)
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"error": str(exc)}), 400
+
+    # ------------------------------------------------------------------ #
+    # POST /api/download
+    # ------------------------------------------------------------------ #
+
+    def download(self):
+        body = request.get_json(silent=True) or {}
+        url = body.get("url", "").strip()
+        if not url:
+            return jsonify({"error": "url is required"}), 400
+
+        try:
+            gen, filename = self._service.download_audio(url)
+        except Exception as exc:  # noqa: BLE001
+            return jsonify({"error": str(exc)}), 400
+
+        safe_filename = filename.replace('"', '\\"')
+        return Response(
+            stream_with_context(gen),
+            mimetype="audio/mpeg",
+            headers={
+                "Content-Disposition": f'attachment; filename="{safe_filename}"',
+                "X-Filename": safe_filename,
+            },
+        )

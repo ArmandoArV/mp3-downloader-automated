@@ -31,8 +31,10 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
+python run.py
 ```
+
+The API runs on `http://localhost:5000`.
 
 ### Frontend
 
@@ -55,12 +57,12 @@ npm run dev
 
 | Variable | Default | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Backend API base URL |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:5000` | Backend API base URL |
 
 Create `frontend/.env.local` and set:
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
 ## Features
