@@ -1,5 +1,7 @@
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Generator
@@ -17,7 +19,12 @@ def _sanitize(name: str) -> str:
 
 
 def _is_spotify(url: str) -> bool:
-    return "spotify.com" in url or url.startswith("spotify:")
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        return parsed.netloc in ("open.spotify.com", "play.spotify.com", "spotify.com") or url.startswith("spotify:")
+    except Exception:
+        return False
 
 
 # ────────────────────────────────────────────────────────────────
@@ -111,44 +118,37 @@ def _download_youtube(url: str) -> tuple[Generator[bytes, None, None], str]:
 
 def _download_spotify(url: str) -> tuple[Generator[bytes, None, None], str]:
     """Download a Spotify track by looking it up on YouTube via spotdl."""
-    try:
-        import subprocess  # noqa: PLC0415
-        import shutil
-
-        if shutil.which("spotdl") is None:
-            raise RuntimeError(
-                "spotdl is not installed. Run: pip install spotdl"
-            )
-
-        tmp_dir = tempfile.mkdtemp()
-        result = subprocess.run(
-            ["spotdl", "--output", tmp_dir, url],
-            capture_output=True,
-            text=True,
-            timeout=300,
+    if shutil.which("spotdl") is None:
+        raise RuntimeError(
+            "spotdl is not installed. Run: pip install spotdl"
         )
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr or "spotdl failed")
 
-        mp3_files = list(Path(tmp_dir).glob("*.mp3"))
-        if not mp3_files:
-            raise FileNotFoundError("spotdl did not produce an MP3 file")
-        mp3_path = mp3_files[0]
-        filename = mp3_path.name
+    tmp_dir = tempfile.mkdtemp()
+    result = subprocess.run(
+        ["spotdl", "--output", tmp_dir, url],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr or "spotdl failed")
 
-        def _gen() -> Generator[bytes, None, None]:
+    mp3_files = list(Path(tmp_dir).glob("*.mp3"))
+    if not mp3_files:
+        raise FileNotFoundError("spotdl did not produce an MP3 file")
+    mp3_path = mp3_files[0]
+    filename = mp3_path.name
+
+    def _gen() -> Generator[bytes, None, None]:
+        try:
+            with open(mp3_path, "rb") as f:
+                while chunk := f.read(65536):
+                    yield chunk
+        finally:
             try:
-                with open(mp3_path, "rb") as f:
-                    while chunk := f.read(65536):
-                        yield chunk
-            finally:
-                try:
-                    mp3_path.unlink(missing_ok=True)
-                    Path(tmp_dir).rmdir()
-                except OSError:
-                    pass
+                mp3_path.unlink(missing_ok=True)
+                Path(tmp_dir).rmdir()
+            except OSError:
+                pass
 
-        return _gen(), filename
-
-    except ImportError:
-        raise RuntimeError("spotdl package is not available")
+    return _gen(), filename

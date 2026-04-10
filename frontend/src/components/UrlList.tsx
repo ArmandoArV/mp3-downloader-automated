@@ -49,7 +49,7 @@ export default function UrlList({ urls, onChange, disabled }: Props) {
                 onChange={e => update(i, e.target.value)}
                 placeholder="https://www.youtube.com/watch?v=... or Spotify URL"
                 disabled={disabled}
-                appearance={invalid ? 'outline' : 'outline'}
+                appearance="outline"
                 className="w-full"
                 style={invalid ? { borderColor: 'red' } : undefined}
               />
