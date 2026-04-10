@@ -108,8 +108,7 @@ def _download_youtube(url: str) -> tuple[Generator[bytes, None, None], str]:
         finally:
             # cleanup
             try:
-                mp3_path.unlink(missing_ok=True)
-                Path(tmp_dir).rmdir()
+                shutil.rmtree(tmp_dir, ignore_errors=True)
             except OSError:
                 pass
 
@@ -146,8 +145,7 @@ def _download_spotify(url: str) -> tuple[Generator[bytes, None, None], str]:
                     yield chunk
         finally:
             try:
-                mp3_path.unlink(missing_ok=True)
-                Path(tmp_dir).rmdir()
+                shutil.rmtree(tmp_dir, ignore_errors=True)
             except OSError:
                 pass
 

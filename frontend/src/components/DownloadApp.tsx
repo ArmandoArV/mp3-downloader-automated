@@ -16,9 +16,8 @@ import DownloadProgress from './DownloadProgress';
 import { DownloadItem } from '@/lib/types';
 import { downloadAudio } from '@/lib/api';
 
-let idCounter = 0;
 function nextId() {
-  return `item-${++idCounter}`;
+  return crypto.randomUUID();
 }
 
 export default function DownloadApp() {
