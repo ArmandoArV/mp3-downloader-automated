@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Generator
+from urllib.parse import urlparse
 
 import yt_dlp
 
@@ -20,7 +21,6 @@ def _sanitize(name: str) -> str:
 
 def _is_spotify(url: str) -> bool:
     try:
-        from urllib.parse import urlparse
         parsed = urlparse(url)
         return parsed.netloc in ("open.spotify.com", "play.spotify.com", "spotify.com") or url.startswith("spotify:")
     except Exception:

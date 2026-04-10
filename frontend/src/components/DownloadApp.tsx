@@ -110,7 +110,7 @@ export default function DownloadApp() {
             </div>
           )}
 
-          <p className="text-center text-xs text-gray-400 mt-6">
+          <p className="text-center text-xs text-gray-600 mt-6">
             Powered by yt-dlp · For personal use only
           </p>
         </div>
