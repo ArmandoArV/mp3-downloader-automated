@@ -11,14 +11,18 @@ import UrlList from './UrlList';
 import FolderPicker from './FolderPicker';
 import DownloadControls from './DownloadControls';
 import DownloadProgress from './DownloadProgress';
+import PlaylistTab from './PlaylistTab';
 import { DownloadItem } from '@/lib/types';
 import { downloadAudio } from '@/lib/api';
+
+type TabId = 'single' | 'playlist';
 
 function nextId() {
   return crypto.randomUUID();
 }
 
 export default function DownloadApp() {
+  const [activeTab, setActiveTab] = useState<TabId>('single');
   const [urls, setUrls] = useState<string[]>(['']);
   const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [items, setItems] = useState<DownloadItem[]>([]);
@@ -31,6 +35,20 @@ export default function DownloadApp() {
   const handleDownload = useCallback(async () => {
     const validUrls = urls.filter(u => u.trim() !== '');
     if (validUrls.length === 0) return;
+
+    // Request write permission upfront while we still have user activation
+    if (dirHandle) {
+      try {
+        const perm = await (dirHandle as FileSystemDirectoryHandle & {
+          requestPermission: (opts: { mode: string }) => Promise<string>;
+        }).requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') {
+          setDirHandle(null);
+        }
+      } catch {
+        setDirHandle(null);
+      }
+    }
 
     const newItems: DownloadItem[] = validUrls.map(url => ({
       id: nextId(),
@@ -88,7 +106,7 @@ export default function DownloadApp() {
             </div>
             <span className="text-white font-semibold text-sm tracking-tight">MP3 Downloader</span>
           </div>
-          <span className="text-xs text-white/30 font-mono">v1.0</span>
+          <span className="text-xs text-white/30 font-mono">v1.1</span>
         </nav>
 
         {/* Hero */}
@@ -108,34 +126,75 @@ export default function DownloadApp() {
           </p>
         </div>
 
-        {/* Main card */}
+        {/* Main content */}
         <div className="w-full max-w-2xl mx-auto px-4 pb-16 flex flex-col gap-4">
-          <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm p-6 flex flex-col gap-6 shadow-2xl shadow-black/40">
 
-            {/* Folder picker */}
-            <FolderPicker dirHandle={dirHandle} onSelect={setDirHandle} />
-
-            <Divider style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
-
-            {/* URL list */}
-            <UrlList urls={urls} onChange={setUrls} disabled={isDownloading} />
-
-            {/* Download button */}
-            <DownloadControls
-              disabled={isDownloading || !hasValidUrl}
-              loading={isDownloading}
-              onDownload={handleDownload}
-            />
+          {/* Tab bar */}
+          <div className="flex gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            <button
+              onClick={() => setActiveTab('single')}
+              className={[
+                'flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all',
+                activeTab === 'single'
+                  ? 'bg-gradient-to-r from-violet-600/80 to-indigo-600/80 text-white shadow-lg shadow-violet-500/20'
+                  : 'text-white/40 hover:text-white/60 hover:bg-white/[0.04]',
+              ].join(' ')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+              </svg>
+              Single Tracks
+            </button>
+            <button
+              onClick={() => setActiveTab('playlist')}
+              className={[
+                'flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all',
+                activeTab === 'playlist'
+                  ? 'bg-gradient-to-r from-green-600/80 to-emerald-600/80 text-white shadow-lg shadow-green-500/20'
+                  : 'text-white/40 hover:text-white/60 hover:bg-white/[0.04]',
+              ].join(' ')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+              Playlist
+            </button>
           </div>
 
-          {/* Progress panel */}
-          {items.length > 0 && (
-            <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm p-6 shadow-2xl shadow-black/40">
-              <Text className="block mb-4 text-white/70 text-sm font-semibold uppercase tracking-widest">
-                Queue
-              </Text>
-              <DownloadProgress items={items} />
-            </div>
+          {/* Tab content */}
+          {activeTab === 'single' ? (
+            <>
+              <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm p-6 flex flex-col gap-6 shadow-2xl shadow-black/40">
+
+                {/* Folder picker */}
+                <FolderPicker dirHandle={dirHandle} onSelect={setDirHandle} />
+
+                <Divider style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+
+                {/* URL list */}
+                <UrlList urls={urls} onChange={setUrls} disabled={isDownloading} />
+
+                {/* Download button */}
+                <DownloadControls
+                  disabled={isDownloading || !hasValidUrl}
+                  loading={isDownloading}
+                  onDownload={handleDownload}
+                />
+              </div>
+
+              {/* Progress panel */}
+              {items.length > 0 && (
+                <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm p-6 shadow-2xl shadow-black/40">
+                  <Text className="block mb-4 text-white/70 text-sm font-semibold uppercase tracking-widest">
+                    Queue
+                  </Text>
+                  <DownloadProgress items={items} />
+                </div>
+              )}
+            </>
+          ) : (
+            <PlaylistTab />
           )}
 
           {/* Footer note */}

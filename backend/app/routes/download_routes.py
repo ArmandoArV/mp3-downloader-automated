@@ -19,3 +19,13 @@ def info():
 @download_bp.post("/download")
 def download():
     return _ctrl.download()
+
+
+@download_bp.post("/playlist/info")
+def playlist_info():
+    return _ctrl.playlist_info()
+
+
+@download_bp.post("/playlist/download")
+def playlist_download():
+    return _ctrl.playlist_download()

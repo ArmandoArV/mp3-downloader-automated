@@ -11,8 +11,8 @@ def create_app() -> Flask:
             "http://localhost:3000",
             "http://localhost:3001",
         ],
-        # Also allow all Vercel preview deployments
         allow_headers=["Content-Type"],
+        expose_headers=["Content-Disposition", "X-Filename"],
         supports_credentials=True,
     )
 
